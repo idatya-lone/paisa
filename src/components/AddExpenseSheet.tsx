@@ -13,6 +13,7 @@ interface AddExpenseSheetProps {
 
 export function AddExpenseSheet({ onClose, onSaved }: AddExpenseSheetProps) {
   const [input, setInput] = useState('₹850 dinner at barbeque nation with Aditya');
+  const [paidBy, setPaidBy] = useState<'shared' | 'janhavi' | 'aditya'>('shared');
   const [error, setError] = useState('');
   const [showConfirmation, setShowConfirmation] = useState(false);
 
@@ -48,7 +49,7 @@ export function AddExpenseSheet({ onClose, onSaved }: AddExpenseSheetProps) {
       merchant: parsed.merchant || 'Unknown merchant',
       category: parsed.category || 'Other',
       subcategory: parsed.subcategory || 'General',
-      paidBy: parsed.paidBy || 'shared',
+      paidBy,
       type: (parsed.type || 'shared') as ExpenseType,
       date: new Date().toISOString(),
     };
@@ -89,6 +90,20 @@ export function AddExpenseSheet({ onClose, onSaved }: AddExpenseSheetProps) {
               placeholder="₹850 dinner at barbeque nation with Aditya"
             />
 
+            <label className="mt-4 block text-sm font-medium text-slate-200" htmlFor="expense-paid-by">
+              Paid by
+            </label>
+            <select
+              id="expense-paid-by"
+              value={paidBy}
+              onChange={(event) => setPaidBy(event.target.value as 'shared' | 'janhavi' | 'aditya')}
+              className="mt-2 w-full rounded-2xl bg-slate-950/60 px-3 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-sky-400/60"
+            >
+              <option value="shared" className="bg-slate-900">Shared household</option>
+              <option value="janhavi" className="bg-slate-900">Janhavi</option>
+              <option value="aditya" className="bg-slate-900">Aditya</option>
+            </select>
+
             {parsed.amount ? (
               <div className="mt-4 rounded-2xl border border-sky-500/30 bg-sky-500/10 p-3 text-sm text-sky-100">
                 <div className="font-semibold text-white">Detected</div>
@@ -118,6 +133,7 @@ export function AddExpenseSheet({ onClose, onSaved }: AddExpenseSheetProps) {
               {parsed.subcategory ? <div className="text-sm text-slate-400">{parsed.subcategory}</div> : null}
               <div className="mt-4 space-y-2 text-sm text-slate-300">
                 <div className="flex items-center gap-2"><span>👥</span> {parsed.type === 'shared' ? 'Shared' : 'Personal'}</div>
+                <div className="flex items-center gap-2"><span>💳</span> Paid by {paidBy === 'shared' ? 'shared household' : paidBy === 'janhavi' ? 'Janhavi' : 'Aditya'}</div>
                 <div className="flex items-center gap-2"><span>📅</span> Today</div>
                 {parsed.merchant ? <div className="flex items-center gap-2"><span>🏪</span> {parsed.merchant}</div> : null}
               </div>
