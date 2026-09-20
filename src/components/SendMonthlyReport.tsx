@@ -7,7 +7,7 @@ import { sendMonthlyReportEmail } from '../services/emailReportService';
 const REPORT_MONTH = '2026-09';
 
 export function SendMonthlyReport() {
-  const [email, setEmail] = useState('hello@janhaviaditya.in');
+  const [email, setEmail] = useState('Janhaviparab17@gmail.com');
   const [status, setStatus] = useState('');
   const [isSending, setIsSending] = useState(false);
 

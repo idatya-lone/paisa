@@ -7,7 +7,7 @@ const REPORT_MONTH = '2026-09';
 
 export function MonthlyReportExport() {
   const [status, setStatus] = useState('');
-  const [email, setEmail] = useState('hello@janhaviaditya.in');
+  const [email, setEmail] = useState('Janhaviparab17@gmail.com');
   const [isSending, setIsSending] = useState(false);
 
   const report = buildMonthlyReport(REPORT_MONTH);
