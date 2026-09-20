@@ -8,7 +8,7 @@ import HomePage from './pages/Home';
 import Insights from './pages/Insights';
 import Goals from './pages/Goals';
 import Settings from './pages/Settings';
-import { initializeDefaultStorage } from './services/storage';
+import { initializeDefaultStorage, syncStateFromCloud } from './services/storage';
 import './App.css';
 
 const navItems = [
@@ -26,7 +26,19 @@ function AppShell() {
 
   useEffect(() => {
     initializeDefaultStorage();
-    setRefreshTick((value) => value + 1);
+    void syncStateFromCloud()
+      .catch((error) => console.error('Could not load shared household data:', error))
+      .finally(() => setRefreshTick((value) => value + 1));
+
+    const refreshInterval = window.setInterval(() => {
+      void syncStateFromCloud()
+        .then((changed) => {
+          if (changed) setRefreshTick((value) => value + 1);
+        })
+        .catch((error) => console.error('Could not refresh shared household data:', error));
+    }, 5000);
+
+    return () => window.clearInterval(refreshInterval);
   }, []);
 
   return (

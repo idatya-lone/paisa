@@ -1,5 +1,11 @@
 import { budgetData, goalData, household, incomeData, sampleExpenses } from '../data/sampleData';
+import { createClient } from '@supabase/supabase-js';
 import type { Budget, Expense, Goal, Household, Income, LearnedCategoryMap } from '../types/finance';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+const HOUSEHOLD_ID = 'couple-household';
 
 const STORAGE_KEYS = {
   household: 'budget-app-household',
@@ -38,11 +44,13 @@ export function saveExpense(expense: Expense) {
   const expenses = getExpenses();
   const nextExpenses = [...expenses.filter((item) => item.id !== expense.id), expense];
   localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(nextExpenses));
+  void syncStateToCloud();
 }
 
 export function deleteExpense(id: string) {
   const expenses = getExpenses().filter((item) => item.id !== id);
   localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses));
+  void syncStateToCloud();
 }
 
 export function getIncome(): Income[] {
@@ -54,6 +62,7 @@ export function saveIncome(income: Income) {
   const incomes = getIncome();
   const nextIncomes = [...incomes.filter((item) => item.id !== income.id), income];
   localStorage.setItem(STORAGE_KEYS.income, JSON.stringify(nextIncomes));
+  void syncStateToCloud();
 }
 
 export function getBudgets(): Budget[] {
@@ -65,11 +74,13 @@ export function saveBudget(budget: Budget) {
   const budgets = getBudgets();
   const nextBudgets = [...budgets.filter((item) => item.id !== budget.id), budget];
   localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(nextBudgets));
+  void syncStateToCloud();
 }
 
 export function deleteBudget(id: string) {
   const budgets = getBudgets().filter((item) => item.id !== id);
   localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(budgets));
+  void syncStateToCloud();
 }
 
 export function getGoals(): Goal[] {
@@ -81,11 +92,56 @@ export function saveGoal(goal: Goal) {
   const goals = getGoals();
   const nextGoals = [...goals.filter((item) => item.id !== goal.id), goal];
   localStorage.setItem(STORAGE_KEYS.goals, JSON.stringify(nextGoals));
+  void syncStateToCloud();
 }
 
 export function deleteGoal(id: string) {
   const goals = getGoals().filter((goal) => goal.id !== id);
   localStorage.setItem(STORAGE_KEYS.goals, JSON.stringify(goals));
+  void syncStateToCloud();
+}
+
+export async function syncStateFromCloud() {
+  if (!supabase) return false;
+
+  const { data, error } = await supabase
+    .from('household_state')
+    .select('expenses, budgets, goals, income')
+    .eq('id', HOUSEHOLD_ID)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) {
+    await syncStateToCloud();
+    return false;
+  }
+
+  const hasCloudData = data.expenses.length || data.budgets.length || data.goals.length || data.income.length;
+  if (!hasCloudData) {
+    await syncStateToCloud();
+    return false;
+  }
+
+  localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(data.expenses));
+  localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(data.budgets));
+  localStorage.setItem(STORAGE_KEYS.goals, JSON.stringify(data.goals));
+  localStorage.setItem(STORAGE_KEYS.income, JSON.stringify(data.income));
+  return true;
+}
+
+export async function syncStateToCloud() {
+  if (!supabase) return;
+
+  const { error } = await supabase.from('household_state').upsert({
+    id: HOUSEHOLD_ID,
+    expenses: getExpenses(),
+    budgets: getBudgets(),
+    goals: getGoals(),
+    income: getIncome(),
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) console.error('Could not sync household data:', error.message);
 }
 
 export function getLearnedCategoryMap(): LearnedCategoryMap {
