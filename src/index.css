@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+:root {
+  font-family: 'Space Grotesk', 'Avenir Next', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: rgba(248, 250, 252, 0.96);
+  background: #060914;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+*:where([class*='border']) {
+  border-color: transparent !important;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 86% -8%, rgba(73, 44, 180, 0.28), transparent 28%),
+    radial-gradient(circle at 8% 20%, rgba(14, 111, 224, 0.14), transparent 26%),
+    linear-gradient(180deg, #070a14 0%, #0a1020 100%);
+}
+
+@media (max-width: 420px) {
+  body {
+    font-size: 15px;
+  }
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button { cursor: pointer; }
+
+button, input, select { -webkit-tap-highlight-color: transparent; }
+
+img { max-width: 100%; display: block; }
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.45);
+  border-radius: 999px;
+}
