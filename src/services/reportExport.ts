@@ -106,7 +106,7 @@ export function buildMonthlyReportWorkbook(monthKey: string) {
   const monthLabel = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(new Date(`${monthKey}-01T00:00:00`));
 
   const summarySheet = XLSX.utils.aoa_to_sheet([
-    ['Janhavi & Aditya | Monthly Finance Report'],
+    ['Janhavi & Aditya | Monthly Finance Report', ''],
     ['Reporting period', monthLabel],
     [],
     ['Metric', 'Amount'],
@@ -128,7 +128,7 @@ export function buildMonthlyReportWorkbook(monthKey: string) {
   const totalExpenses = report.summary.totalExpenses || 1;
   const categoryRows = report.summary.categoryBreakdown.map((row) => [row.category, row.total, row.total / totalExpenses]);
   const categorySheet = XLSX.utils.aoa_to_sheet([
-    ['Category breakdown'],
+    ['Category breakdown', '', ''],
     ['Category', 'Total', 'Share of spend'],
     ...categoryRows,
   ]);
