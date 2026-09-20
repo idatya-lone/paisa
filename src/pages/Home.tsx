@@ -1,23 +1,33 @@
 import { ArrowLeft, ArrowRight, Bell, PiggyBank, Search, TrendingUp, Wallet } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { getBudgets, getExpenses, getIncome } from '../services/storage';
 import { formatCurrency, formatMonthLabel } from '../utils/formatters';
 
-const currentMonth = '2026-09';
+const initialMonth = '2026-09';
+
+function shiftMonth(monthKey: string, amount: number) {
+  const date = new Date(`${monthKey}-01T00:00:00`);
+  date.setMonth(date.getMonth() + amount);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
 
 function Home() {
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
   const expenses = getExpenses();
   const budgets = getBudgets();
   const incomes = getIncome();
+  const monthlyExpenses = useMemo(() => expenses.filter((expense) => expense.date.slice(0, 7) === selectedMonth), [expenses, selectedMonth]);
+  const monthlyIncome = useMemo(() => incomes.filter((income) => income.date.slice(0, 7) === selectedMonth), [incomes, selectedMonth]);
+  const monthlyBudgets = useMemo(() => budgets.filter((budget) => budget.month === selectedMonth), [budgets, selectedMonth]);
 
-  const totalIncome = useMemo(() => incomes.reduce((sum, item) => sum + item.amount, 0), [incomes]);
-  const totalSpent = useMemo(() => expenses.reduce((sum, item) => sum + item.amount, 0), [expenses]);
+  const totalIncome = useMemo(() => monthlyIncome.reduce((sum, item) => sum + item.amount, 0), [monthlyIncome]);
+  const totalSpent = useMemo(() => monthlyExpenses.reduce((sum, item) => sum + item.amount, 0), [monthlyExpenses]);
   const remaining = totalIncome - totalSpent;
   const savings = remaining;
 
   const budgetSummary = useMemo(() => {
-    return budgets.map((budget) => {
-      const spent = expenses
+    return monthlyBudgets.map((budget) => {
+      const spent = monthlyExpenses
         .filter((expense) => expense.category === budget.category)
         .reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -28,10 +38,10 @@ function Home() {
         percentage: budget.amount > 0 ? Math.min((spent / budget.amount) * 100, 100) : 0,
       };
     });
-  }, [budgets, expenses]);
+  }, [monthlyBudgets, monthlyExpenses]);
 
   const monthlySavingsPct = totalIncome > 0 ? (savings / totalIncome) * 100 : 0;
-  const totalBudget = budgets.reduce((sum, item) => sum + item.amount, 0);
+  const totalBudget = monthlyBudgets.reduce((sum, item) => sum + item.amount, 0);
   const budgetSpent = budgetSummary.reduce((sum, item) => sum + item.spent, 0);
   const budgetPercent = totalBudget > 0 ? Math.min((budgetSpent / totalBudget) * 100, 100) : 0;
 
@@ -43,11 +53,11 @@ function Home() {
           <div className="flex items-center gap-1 text-slate-400"><button type="button" aria-label="Search" className="rounded-full p-2 hover:bg-white/10 hover:text-white"><Search size={18} /></button><button type="button" aria-label="Notifications" className="rounded-full p-2 hover:bg-white/10 hover:text-white"><Bell size={18} /></button></div>
         </div>
         <div className="mb-4 flex items-center justify-between">
-          <button type="button" className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:bg-white/10" aria-label="Previous month">
+          <button type="button" onClick={() => setSelectedMonth((month) => shiftMonth(month, -1))} className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:bg-white/10" aria-label="Previous month">
             <ArrowLeft size={18} />
           </button>
-          <div className="text-center"><div className="text-[11px] uppercase tracking-[0.2em] text-blue-300">Monthly overview</div><h2 className="mt-1 text-lg font-semibold text-white">{formatMonthLabel(currentMonth)}</h2></div>
-          <button type="button" className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:bg-white/10" aria-label="Next month">
+          <div className="text-center"><div className="text-[11px] uppercase tracking-[0.2em] text-blue-300">Monthly overview</div><h2 className="mt-1 text-lg font-semibold text-white">{formatMonthLabel(selectedMonth)}</h2></div>
+          <button type="button" onClick={() => setSelectedMonth((month) => shiftMonth(month, 1))} className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:bg-white/10" aria-label="Next month">
             <ArrowRight size={18} />
           </button>
         </div>
@@ -128,6 +138,7 @@ function Home() {
               </div>
             </div>
           ))}
+          {budgetSummary.length === 0 && <div className="rounded-2xl bg-slate-950/40 p-6 text-center text-sm text-slate-400">No budget has been set for {formatMonthLabel(selectedMonth)}.</div>}
         </div>
       </section>
 
@@ -138,7 +149,7 @@ function Home() {
         </div>
 
         <div className="space-y-3">
-          {expenses.slice(0, 4).map((expense) => (
+          {monthlyExpenses.slice(0, 4).map((expense) => (
             <button
               key={expense.id}
               type="button"
@@ -154,6 +165,7 @@ function Home() {
               </div>
             </button>
           ))}
+          {monthlyExpenses.length === 0 && <div className="rounded-2xl bg-slate-950/40 p-6 text-center text-sm text-slate-400">No expenses recorded for {formatMonthLabel(selectedMonth)}.</div>}
         </div>
       </section>
     </div>
