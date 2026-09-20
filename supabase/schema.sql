@@ -144,6 +144,17 @@ create table if not exists public.report_deliveries (
   check (extract(day from report_month) = 1)
 );
 
+-- Temporary bridge for the current frontend storage adapter.
+-- Remove this table after the app is migrated to the normalized tables above.
+create table if not exists public.household_state (
+  id text primary key,
+  expenses jsonb not null default '[]'::jsonb,
+  budgets jsonb not null default '[]'::jsonb,
+  goals jsonb not null default '[]'::jsonb,
+  income jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
 create or replace function public.is_household_member(target_household_id uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.household_members where household_id = target_household_id and user_id = auth.uid());
@@ -242,6 +253,7 @@ alter table public.income enable row level security;
 alter table public.learned_categories enable row level security;
 alter table public.notifications enable row level security;
 alter table public.report_deliveries enable row level security;
+alter table public.household_state enable row level security;
 
 drop policy if exists "Users can view their profile" on public.profiles;
 drop policy if exists "Users can update their profile" on public.profiles;
@@ -259,6 +271,7 @@ drop policy if exists "Members can manage learned categories" on public.learned_
 drop policy if exists "Users can manage their notifications" on public.notifications;
 drop policy if exists "Members can view report deliveries" on public.report_deliveries;
 drop policy if exists "Members can create report deliveries" on public.report_deliveries;
+drop policy if exists "Allow shared household access" on public.household_state;
 
 create policy "Users can view their profile" on public.profiles for select using (id = auth.uid());
 create policy "Users can update their profile" on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
@@ -276,3 +289,4 @@ create policy "Members can manage learned categories" on public.learned_categori
 create policy "Users can manage their notifications" on public.notifications for all using (recipient_user_id = auth.uid()) with check (recipient_user_id = auth.uid());
 create policy "Members can view report deliveries" on public.report_deliveries for select using (public.is_household_member(household_id));
 create policy "Members can create report deliveries" on public.report_deliveries for insert with check (requested_by = auth.uid() and public.is_household_member(household_id));
+create policy "Allow shared household access" on public.household_state for all using (id = 'couple-household') with check (id = 'couple-household');
