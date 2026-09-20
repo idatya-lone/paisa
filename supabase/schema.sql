@@ -3,12 +3,24 @@
 
 create extension if not exists pgcrypto;
 
-create type public.household_role as enum ('owner', 'member');
-create type public.expense_type as enum ('shared', 'personal');
-create type public.goal_status as enum ('active', 'completed', 'paused', 'archived');
-create type public.notification_type as enum ('expense_added', 'goal_updated', 'budget_warning', 'report_sent');
+do $$ begin
+  create type public.household_role as enum ('owner', 'member');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type public.expense_type as enum ('shared', 'personal');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type public.goal_status as enum ('active', 'completed', 'paused', 'archived');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type public.notification_type as enum ('expense_added', 'goal_updated', 'budget_warning', 'report_sent');
+exception when duplicate_object then null;
+end $$;
 
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
   avatar_url text,
@@ -16,7 +28,7 @@ create table public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create table public.households (
+create table if not exists public.households (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(trim(name)) between 1 and 120),
   currency_code text not null default 'INR' check (currency_code ~ '^[A-Z]{3}$'),
@@ -25,7 +37,7 @@ create table public.households (
   updated_at timestamptz not null default now()
 );
 
-create table public.household_members (
+create table if not exists public.household_members (
   household_id uuid not null references public.households(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   role public.household_role not null default 'member',
@@ -33,7 +45,7 @@ create table public.household_members (
   primary key (household_id, user_id)
 );
 
-create table public.expenses (
+create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   title text not null check (char_length(trim(title)) between 1 and 160),
@@ -50,7 +62,7 @@ create table public.expenses (
   updated_at timestamptz not null default now()
 );
 
-create table public.budgets (
+create table if not exists public.budgets (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   category text not null,
@@ -63,7 +75,7 @@ create table public.budgets (
   check (extract(day from month) = 1)
 );
 
-create table public.goals (
+create table if not exists public.goals (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   title text not null check (char_length(trim(title)) between 1 and 160),
@@ -76,7 +88,7 @@ create table public.goals (
   updated_at timestamptz not null default now()
 );
 
-create table public.goal_contributions (
+create table if not exists public.goal_contributions (
   id uuid primary key default gen_random_uuid(),
   goal_id uuid not null references public.goals(id) on delete cascade,
   amount numeric(12, 2) not null check (amount > 0),
@@ -86,7 +98,7 @@ create table public.goal_contributions (
   created_at timestamptz not null default now()
 );
 
-create table public.income (
+create table if not exists public.income (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   amount numeric(12, 2) not null check (amount > 0),
@@ -98,7 +110,7 @@ create table public.income (
   updated_at timestamptz not null default now()
 );
 
-create table public.learned_categories (
+create table if not exists public.learned_categories (
   household_id uuid not null references public.households(id) on delete cascade,
   merchant_key text not null,
   category text not null,
@@ -107,7 +119,7 @@ create table public.learned_categories (
   primary key (household_id, merchant_key)
 );
 
-create table public.notifications (
+create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   recipient_user_id uuid not null references auth.users(id) on delete cascade,
@@ -119,7 +131,7 @@ create table public.notifications (
   created_at timestamptz not null default now()
 );
 
-create table public.report_deliveries (
+create table if not exists public.report_deliveries (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   requested_by uuid not null references auth.users(id) on delete restrict,
@@ -150,6 +162,12 @@ begin
 end;
 $$;
 
+drop trigger if exists profiles_set_updated_at on public.profiles;
+drop trigger if exists households_set_updated_at on public.households;
+drop trigger if exists expenses_set_updated_at on public.expenses;
+drop trigger if exists budgets_set_updated_at on public.budgets;
+drop trigger if exists goals_set_updated_at on public.goals;
+drop trigger if exists income_set_updated_at on public.income;
 create trigger profiles_set_updated_at before update on public.profiles for each row execute function public.set_updated_at();
 create trigger households_set_updated_at before update on public.households for each row execute function public.set_updated_at();
 create trigger expenses_set_updated_at before update on public.expenses for each row execute function public.set_updated_at();
@@ -157,13 +175,13 @@ create trigger budgets_set_updated_at before update on public.budgets for each r
 create trigger goals_set_updated_at before update on public.goals for each row execute function public.set_updated_at();
 create trigger income_set_updated_at before update on public.income for each row execute function public.set_updated_at();
 
-create index expenses_household_date_idx on public.expenses (household_id, spent_on desc);
-create index expenses_household_category_idx on public.expenses (household_id, category);
-create index budgets_household_month_idx on public.budgets (household_id, month);
-create index goals_household_status_idx on public.goals (household_id, status);
-create index goal_contributions_goal_date_idx on public.goal_contributions (goal_id, contributed_on desc);
-create index income_household_date_idx on public.income (household_id, received_on desc);
-create index notifications_recipient_unread_idx on public.notifications (recipient_user_id, read_at, created_at desc);
+create index if not exists expenses_household_date_idx on public.expenses (household_id, spent_on desc);
+create index if not exists expenses_household_category_idx on public.expenses (household_id, category);
+create index if not exists budgets_household_month_idx on public.budgets (household_id, month);
+create index if not exists goals_household_status_idx on public.goals (household_id, status);
+create index if not exists goal_contributions_goal_date_idx on public.goal_contributions (goal_id, contributed_on desc);
+create index if not exists income_household_date_idx on public.income (household_id, received_on desc);
+create index if not exists notifications_recipient_unread_idx on public.notifications (recipient_user_id, read_at, created_at desc);
 
 create or replace view public.goal_progress as
 select
@@ -224,6 +242,23 @@ alter table public.income enable row level security;
 alter table public.learned_categories enable row level security;
 alter table public.notifications enable row level security;
 alter table public.report_deliveries enable row level security;
+
+drop policy if exists "Users can view their profile" on public.profiles;
+drop policy if exists "Users can update their profile" on public.profiles;
+drop policy if exists "Members can view households" on public.households;
+drop policy if exists "Users can create households" on public.households;
+drop policy if exists "Owners can update households" on public.households;
+drop policy if exists "Members can view membership" on public.household_members;
+drop policy if exists "Owners can manage membership" on public.household_members;
+drop policy if exists "Members can manage expenses" on public.expenses;
+drop policy if exists "Members can manage budgets" on public.budgets;
+drop policy if exists "Members can manage goals" on public.goals;
+drop policy if exists "Members can manage goal contributions" on public.goal_contributions;
+drop policy if exists "Members can manage income" on public.income;
+drop policy if exists "Members can manage learned categories" on public.learned_categories;
+drop policy if exists "Users can manage their notifications" on public.notifications;
+drop policy if exists "Members can view report deliveries" on public.report_deliveries;
+drop policy if exists "Members can create report deliveries" on public.report_deliveries;
 
 create policy "Users can view their profile" on public.profiles for select using (id = auth.uid());
 create policy "Users can update their profile" on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
