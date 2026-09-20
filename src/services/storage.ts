@@ -102,7 +102,9 @@ export function deleteGoal(id: string) {
 }
 
 export async function syncStateFromCloud() {
-  if (!supabase) return false;
+  if (!supabase) return { changed: false, newExpenses: [] as Expense[] };
+
+  const previousExpenses = getExpenses();
 
   const { data, error } = await supabase
     .from('household_state')
@@ -113,24 +115,27 @@ export async function syncStateFromCloud() {
   if (error) throw error;
   if (!data) {
     await syncStateToCloud();
-    return false;
+    return { changed: false, newExpenses: [] as Expense[] };
   }
 
   const hasCloudData = data.expenses.length || data.budgets.length || data.goals.length || data.income.length;
   if (!hasCloudData) {
     await syncStateToCloud();
-    return false;
+    return { changed: false, newExpenses: [] as Expense[] };
   }
 
   localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(data.expenses));
   localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(data.budgets));
   localStorage.setItem(STORAGE_KEYS.goals, JSON.stringify(data.goals));
   localStorage.setItem(STORAGE_KEYS.income, JSON.stringify(data.income));
-  return true;
+  const previousExpenseIds = new Set(previousExpenses.map((expense) => expense.id));
+  const cloudExpenses = data.expenses as Expense[];
+  const newExpenses = cloudExpenses.filter((expense: Expense) => !previousExpenseIds.has(expense.id));
+  return { changed: true, newExpenses };
 }
 
 export async function syncStateToCloud() {
-  if (!supabase) return;
+  if (!supabase) return false;
 
   const { error } = await supabase.from('household_state').upsert({
     id: HOUSEHOLD_ID,
@@ -141,7 +146,12 @@ export async function syncStateToCloud() {
     updated_at: new Date().toISOString(),
   });
 
-  if (error) console.error('Could not sync household data:', error.message);
+  if (error) {
+    console.error('Could not sync household data:', error.message);
+    return false;
+  }
+
+  return true;
 }
 
 export function getLearnedCategoryMap(): LearnedCategoryMap {

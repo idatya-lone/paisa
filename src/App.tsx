@@ -1,14 +1,15 @@
-import { Home, PiggyBank, ReceiptText, Settings as SettingsIcon, Target, TrendingUp } from 'lucide-react';
+import { Bell, Check, Home, PiggyBank, ReceiptText, RefreshCw, Save, Settings as SettingsIcon, Target, TrendingUp, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { AddExpenseSheet } from './components/AddExpenseSheet';
+import type { Expense } from './types/finance';
 import Budget from './pages/Budget';
 import Expenses from './pages/Expenses';
 import HomePage from './pages/Home';
 import Insights from './pages/Insights';
 import Goals from './pages/Goals';
 import Settings from './pages/Settings';
-import { initializeDefaultStorage, syncStateFromCloud } from './services/storage';
+import { initializeDefaultStorage, syncStateFromCloud, syncStateToCloud } from './services/storage';
 import './App.css';
 
 const navItems = [
@@ -23,17 +24,44 @@ const navItems = [
 function AppShell() {
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [syncMessage, setSyncMessage] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [newExpenseNotice, setNewExpenseNotice] = useState<string[]>([]);
+
+  async function refreshFromCloud(showStatus = true) {
+    setIsSyncing(true);
+    try {
+      const result = await syncStateFromCloud();
+      if (result.newExpenses.length > 0) {
+        setNewExpenseNotice(result.newExpenses.map((expense: Expense) => `${expense.paidBy === 'janhavi' ? 'Janhavi' : expense.paidBy === 'aditya' ? 'Aditya' : 'Someone'} added ${expense.title} for ₹${expense.amount.toLocaleString('en-IN')}`));
+      }
+      setRefreshTick((value) => value + 1);
+      if (showStatus) setSyncMessage('Latest household data loaded.');
+    } catch (error) {
+      setSyncMessage(error instanceof Error ? error.message : 'Could not refresh shared data.');
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function saveToCloud() {
+    setIsSyncing(true);
+    const saved = await syncStateToCloud();
+    setSyncMessage(saved ? 'Saved to the shared household.' : 'Shared sync is not configured.');
+    setIsSyncing(false);
+  }
 
   useEffect(() => {
     initializeDefaultStorage();
-    void syncStateFromCloud()
-      .catch((error) => console.error('Could not load shared household data:', error))
-      .finally(() => setRefreshTick((value) => value + 1));
+    void refreshFromCloud(false);
 
     const refreshInterval = window.setInterval(() => {
       void syncStateFromCloud()
-        .then((changed) => {
-          if (changed) setRefreshTick((value) => value + 1);
+        .then((result) => {
+          if (result.newExpenses.length > 0) {
+            setNewExpenseNotice(result.newExpenses.map((expense: Expense) => `${expense.paidBy === 'janhavi' ? 'Janhavi' : expense.paidBy === 'aditya' ? 'Aditya' : 'Someone'} added ${expense.title} for ₹${expense.amount.toLocaleString('en-IN')}`));
+          }
+          if (result.changed) setRefreshTick((value) => value + 1);
         })
         .catch((error) => console.error('Could not refresh shared household data:', error));
     }, 5000);
@@ -43,6 +71,7 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-[#060914] text-slate-100">
+      {newExpenseNotice.length > 0 && <div className="fixed inset-x-3 top-3 z-[70] mx-auto max-w-md rounded-2xl bg-blue-500 px-4 py-3 text-sm text-white shadow-[0_18px_40px_rgba(37,99,235,0.35)]"><div className="flex items-start gap-3"><Bell size={18} className="mt-0.5 shrink-0" /><div className="min-w-0 flex-1"><div className="font-semibold">New household expense</div>{newExpenseNotice.map((notice) => <div key={notice} className="mt-1 text-blue-50">{notice}</div>)}</div><button type="button" aria-label="Dismiss notification" onClick={() => setNewExpenseNotice([])} className="rounded-lg p-1 hover:bg-white/10"><X size={16} /></button></div></div>}
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
         <aside className="hidden w-64 shrink-0 border-r border-white/10 bg-[#070a14]/85 p-5 lg:flex lg:flex-col">
           <div className="mb-10 flex items-center gap-3">
@@ -89,6 +118,7 @@ function AppShell() {
 
         <main className="flex-1 p-3 pb-24 sm:p-6 lg:pb-6">
           <div className="mx-auto max-w-5xl">
+            <div className="mb-4 flex items-center justify-end gap-2"><button type="button" onClick={saveToCloud} disabled={isSyncing} className="inline-flex items-center gap-2 rounded-xl bg-blue-500/15 px-3 py-2 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/25 disabled:opacity-60"><Save size={15} /> Save</button><button type="button" onClick={() => void refreshFromCloud()} disabled={isSyncing} className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 disabled:opacity-60"><RefreshCw size={15} className={isSyncing ? 'animate-spin' : ''} /> Refresh</button>{syncMessage && <span className="hidden items-center gap-1 text-xs text-slate-400 sm:flex"><Check size={13} /> {syncMessage}</span>}</div>
             <Routes>
               <Route path="/" element={<HomePage key={refreshTick} />} />
               <Route path="/expenses" element={<Expenses key={refreshTick} />} />
